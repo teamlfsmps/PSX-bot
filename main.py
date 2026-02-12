@@ -101,3 +101,25 @@ async def painel(ctx):
 # LINHA PARA O RENDER
 bot.run(os.environ.get('DISCORD_TOKEN'))
                             
+from flask import Flask
+from threading import Thread
+
+# Cria um servidorzinho web
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot está vivo!"
+
+def run():
+  app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# --- ABAIXO DISSO VEM O SEU CÓDIGO DO BOT ---
+
+# No final do arquivo, ANTES do bot.run, chame a função:
+keep_alive() 
+bot.run(os.environ.get('DISCORD_TOKEN'))
