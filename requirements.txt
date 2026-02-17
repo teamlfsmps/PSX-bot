@@ -1,5 +1,4 @@
 discord.py
-flask
 motor
 quart
 discord-ext-oauth2
