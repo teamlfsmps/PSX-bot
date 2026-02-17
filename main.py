@@ -141,7 +141,7 @@ async def rr(ctx):
         await ctx.send(f"❌ Erro na configuração: {e}")
 
 # --- 5. COMANDOS SLASH ---
-@bot.tree.command(name="setup_painel", description="『PSX』 Envia o painel de atendimento.")
+@bot.tree.command(name="setup_painel", description="『PSX』 Envia o painel de atendimento que você configurou.")
 async def setup_painel(interaction: discord.Interaction):
     try:
         await interaction.response.defer(ephemeral=True)
@@ -162,15 +162,15 @@ async def setup_painel(interaction: discord.Interaction):
     except Exception as e:
         print(f"Erro no setup: {e}")
 
-@bot.tree.command(name="ajuda", description="『PSX』 Comandos do bot.")
+@bot.tree.command(name="ajuda", description="『PSX』 Painel de Comandos do Bot, Use isso se quiser saber os comandos.")
 async def ajuda(interaction: discord.Interaction):
-    embed = discord.Embed(title="✨ Central 『PSX』", color=discord.Color.gold())
-    embed.add_field(name="Comandos", value="`/setup_painel`\n`!rr` (Config)\n`/ping`", inline=False)
+    embed = discord.Embed(title="✨ Central de Ajuda!『PSX』", color=discord.Color.gold())
+    embed.add_field(name="⚙️Categorias-Comandos", value="`/setup_painel`\n`!rr` (Config)\n`/ping`", inline=True)
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="ping", description="『PSX』 Latência.")
+@bot.tree.command(name="ping", description="『PSX』 Verifica a Latência do Bot.")
 async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message(f"🏓 `{round(bot.latency * 1000)}ms`", ephemeral=True)
+    await interaction.response.send_message(f"🏓 Nossa latência:`{round(bot.latency * 1000)}ms`", ephemeral=True)
 
 # --- 6. START ---
 @app.route('/')
