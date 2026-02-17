@@ -1,4 +1,4 @@
 discord.py
 motor
 quart
-discord-ext-oauth2
+discord-ext-oauth
