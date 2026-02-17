@@ -6,6 +6,9 @@ import os
 import asyncio
 from flask import Flask
 from threading import Thread
+CLIENT_ID = 1471209311551098931
+CLIENT_SECRET = "YbtZZsBepMgDGjxPLYTtNvrST90RO8NE"
+REDIRECT_URI = "https://psx-bot-final.onrender.com/callback"
 
 # --- SERVIDOR WEB (KEEP ALIVE) ---
 app = Flask('')
