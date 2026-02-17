@@ -26,33 +26,29 @@ class MyBot(commands.Bot):
     
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✅ 『PSX』 Comandos sincronizados com descrições detalhadas!")
+        print(f"✅ 『PSX』 Comandos sincronizados dentro do limite de caracteres!")
 
 bot = MyBot()
 
-# --- 2. SITE (DASHBOARD) ---
+# --- 2. SITE ---
 @app.route('/')
 async def home():
     return await render_template('index.html')
 
 # --- 3. COMPONENTES DE TICKET ---
 class CloseTicketView(ui.View):
-    def __init__(self): 
-        super().__init__(timeout=None)
-    
+    def __init__(self): super().__init__(timeout=None)
     @ui.button(label="Fechar Ticket", style=discord.ButtonStyle.danger, emoji="🔒")
     async def close(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_message("『PSX』 Este canal de atendimento será encerrado em instantes...", ephemeral=True)
+        await interaction.response.send_message("『PSX』 Encerrando o atendimento em instantes...", ephemeral=True)
         await asyncio.sleep(3)
         await interaction.channel.delete()
 
-class TicketModal(ui.Modal, title='『PSX』 Formulário de Suporte'):
-    motivo = ui.TextInput(label='Motivo do contato', style=discord.TextStyle.paragraph, placeholder="Descreva aqui o que você precisa...")
-    
+class TicketModal(ui.Modal, title='『PSX』 Suporte'):
+    motivo = ui.TextInput(label='Motivo', style=discord.TextStyle.paragraph, placeholder="Descreva sua dúvida...")
     def __init__(self, categoria):
         super().__init__()
         self.categoria = categoria
-
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
@@ -61,105 +57,72 @@ class TicketModal(ui.Modal, title='『PSX』 Formulário de Suporte'):
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
-        
         channel = await guild.create_text_channel(name=f'ticket-{interaction.user.name}', overwrites=overwrites)
-        
-        embed = discord.Embed(
-            title="🎫 Ticket de Atendimento",
-            description=f"**Usuário:** {interaction.user.mention}\n**Categoria Escolhida:** {self.categoria}\n**Assunto:** {self.motivo.value}",
-            color=0x5865F2,
-            timestamp=datetime.datetime.now()
-        )
-        embed.set_footer(text="『PSX』 Sistema de Suporte Multi-Servidor")
-        
+        embed = discord.Embed(title="🎫 Novo Ticket", description=f"**Membro:** {interaction.user.mention}\n**Categoria:** {self.categoria}\n**Motivo:** {self.motivo.value}", color=0x5865F2)
+        embed.set_footer(text="『PSX』 Sistema Multi-Servidor")
         await channel.send(content=f"{interaction.user.mention} suporte solicitado!", embed=embed, view=CloseTicketView())
-        await interaction.followup.send(f"✅ 『PSX』 Seu ticket foi gerado com sucesso: {channel.mention}")
+        await interaction.followup.send(f"✅ 『PSX』 Ticket criado: {channel.mention}")
 
 class TicketView(ui.View):
     def __init__(self, categorias):
         super().__init__(timeout=None)
         options = [discord.SelectOption(label=c['nome'], description=c['desc']) for c in categorias]
-        self.select = ui.Select(placeholder="Selecione uma opção para abrir o ticket...", options=options)
+        self.select = ui.Select(placeholder="Selecione uma categoria...", options=options)
         self.select.callback = self.callback
         self.add_item(self.select)
-
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(TicketModal(self.select.values[0]))
 
-# --- 4. COMANDOS SLASH (/) COM DESCRIÇÕES DETALHADAS ---
-@bot.tree.command(name="ping", description="『PSX』 Mostra a velocidade de resposta (latência) atual do bot com o servidor.")
+# --- 4. COMANDOS SLASH (/) - TEXTOS CURTOS PARA EVITAR ERRO ---
+@bot.tree.command(name="ping", description="『PSX』 Mostra a latência e velocidade de resposta atual do bot.")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"🏓 Pong! 『PSX』 Latência: {round(bot.latency * 1000)}ms")
 
-@bot.tree.command(name="ajuda", description="『PSX』 Exibe o menu principal de auxílio com a lista de todos os comandos e suas funcionalidades.")
+@bot.tree.command(name="ajuda", description="『PSX』 Menu de auxílio com a lista de todos os comandos e funções.")
 async def ajuda(interaction: discord.Interaction):
-    embed = discord.Embed(title="📚 『PSX』 Central de Comandos", color=0x5865F2)
-    embed.add_field(name="/ping", value="Verifica a latência do bot.", inline=False)
-    embed.add_field(name="/setup_ticket", value="Envia o painel de atendimento para os membros abrirem tickets.", inline=False)
-    embed.add_field(name="!rr", value="Inicia a configuração interativa do seu servidor no banco de dados.", inline=False)
-    embed.add_field(name="Sensibilidade", value="Dica do dia: a sensibilidade configurada chega a 200!", inline=False)
+    embed = discord.Embed(title="📚 『PSX』 Central de Ajuda", color=0x5865F2)
+    embed.add_field(name="/ping", value="Verifica latência.", inline=True)
+    embed.add_field(name="/setup_ticket", value="Envia o painel de suporte.", inline=True)
+    embed.add_field(name="!rr", value="Configura título e banner.", inline=False)
+    embed.set_footer(text="Dica: A sensibilidade chega até 200!")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="setup_ticket", description="『PSX』 Envia o painel interativo de tickets para o canal atual usando as configurações salvas do servidor.")
+@bot.tree.command(name="setup_ticket", description="『PSX』 Envia o painel de atendimento usando as configurações salvas.")
 async def setup_ticket(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     dados = await collection.find_one({"_id": interaction.guild_id})
-    
     categorias = dados.get("categorias") if dados and dados.get("categorias") else [
-        {"nome": "Suporte Geral", "desc": "Ajuda técnica e dúvidas"},
-        {"nome": "Financeiro", "desc": "Assuntos sobre pagamentos e planos"}
+        {"nome": "Suporte Geral", "desc": "Ajuda técnica"},
+        {"nome": "Financeiro", "desc": "Pagamentos"}
     ]
-    
-    titulo = dados.get("titulo", "Central de Atendimento") if dados else "Atendimento Principal"
-    
-    embed = discord.Embed(title=f"🎫 {titulo}", description="Clique no menu abaixo para abrir um canal de atendimento privado.", color=0x5865F2)
-    if dados and dados.get("banner"):
-        embed.set_image(url=dados['banner'])
-        
+    titulo = dados.get("titulo", "Central de Atendimento") if dados else "Atendimento"
+    embed = discord.Embed(title=f"🎫 {titulo}", description="Selecione abaixo para abrir um ticket.", color=0x5865F2)
+    if dados and dados.get("banner"): embed.set_image(url=dados['banner'])
     await interaction.channel.send(embed=embed, view=TicketView(categorias))
-    await interaction.followup.send("✅ 『PSX』 Painel de atendimento enviado com sucesso!")
+    await interaction.followup.send("✅ 『PSX』 Painel enviado!")
 
-# --- 5. COMANDO CLÁSSICO !RR (PARA CONFIGURAÇÃO MULTI-SERVER) ---
+# --- 5. COMANDO !RR ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def rr(ctx):
-    await ctx.send("⚙️ **『PSX』 Configuração do Servidor**\nQual o título você deseja para o seu painel de tickets?")
-    
+    await ctx.send("⚙️ **『PSX』** Qual o título para o painel de tickets?")
     def check(m): return m.author == ctx.author and m.channel == ctx.channel
-    
     try:
-        titulo_msg = await bot.wait_for('message', check=check, timeout=60.0)
-        await ctx.send("Excelente! Agora envie o **Link da Imagem (Banner)** ou digite `pular` para não usar imagem:")
-        banner_msg = await bot.wait_for('message', check=check, timeout=60.0)
-        
-        banner_url = banner_msg.content if banner_msg.content.lower() != 'pular' else None
-        
-        # Salva ou atualiza os dados específicos deste servidor (Guild ID)
-        await collection.update_one(
-            {"_id": ctx.guild.id},
-            {"$set": {"titulo": titulo_msg.content, "banner": banner_url}},
-            upsert=True
-        )
-        await ctx.send(f"✅ 『PSX』 Configuração finalizada para **{ctx.guild.name}**! Use `/setup_ticket` para ver o resultado.")
-        
+        t = await bot.wait_for('message', check=check, timeout=60.0)
+        await ctx.send("Envie o **Link do Banner** ou digite `pular`:")
+        b = await bot.wait_for('message', check=check, timeout=60.0)
+        url = b.content if b.content.lower() != 'pular' else None
+        await collection.update_one({"_id": ctx.guild.id}, {"$set": {"titulo": t.content, "banner": url}}, upsert=True)
+        await ctx.send(f"✅ 『PSX』 Salvo para **{ctx.guild.name}**! Use `/setup_ticket`.")
     except asyncio.TimeoutError:
-        await ctx.send("⏰ 『PSX』 Tempo esgotado. Tente o comando `!rr` novamente.")
+        await ctx.send("⏰ 『PSX』 Tempo esgotado.")
 
-# --- 6. EXECUÇÃO DO SISTEMA ---
+# --- 6. EXECUÇÃO ---
 async def main():
     port = int(os.environ.get("PORT", 10000))
-    if not TOKEN:
-        print("❌ 『PSX』 ERRO CRÍTICO: DISCORD_TOKEN não encontrado!")
-        return
-    
-    await asyncio.gather(
-        bot.start(TOKEN),
-        app.run_task(host="0.0.0.0", port=port)
-    )
+    if not TOKEN: return print("❌ 『PSX』 Token faltando!")
+    await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=port))
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
-    
+    asyncio.run(main())
+        
