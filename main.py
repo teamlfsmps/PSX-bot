@@ -10,21 +10,20 @@ TOKEN = os.environ.get('DISCORD_TOKEN')
 MONGO_URL = "mongodb+srv://PSX:psx2026@cluster0.dbttxsf.mongodb.net/?retryWrites=true&w=majority"
 
 app = Quart(__name__)
-# Ajuste de conexão para ser instantânea
 cluster = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=5000)
 db = cluster["psx_bot"]
 collection = db["config_tickets"]
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+# Intents completos para evitar erros de permissão
+intents = discord.Intents.all() 
 
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
     async def setup_hook(self):
+        # Isso limpa comandos antigos e registra os novos
         await self.tree.sync()
-        print(f"✅ 『PSX』 Bot Pronto e Sincronizado.")
+        print(f"✅ Comandos Slash Sincronizados com Sucesso!")
 
 bot = MyBot()
 
@@ -34,7 +33,7 @@ def get_url(message):
     return message.content
 
 async def generate_transcript(channel):
-    transcript = f"--- Transcrição: {channel.name} ---\n"
+    transcript = f"--- Transcrição PSX: {channel.name} ---\n"
     async for msg in channel.history(limit=None, oldest_first=True):
         transcript += f"[{msg.created_at.strftime('%H:%M')}] {msg.author}: {msg.content}\n"
     return io.BytesIO(transcript.encode('utf-8'))
@@ -72,7 +71,7 @@ class TicketActions(ui.View):
         await it.response.edit_message(view=self)
     @ui.button(label="Fechar", style=discord.ButtonStyle.danger, emoji="🔒")
     async def close(self, it, button):
-        await it.response.send_message("🔒 Fechando...")
+        await it.response.send_message("🔒 Fechando...", ephemeral=True)
         log_ch = bot.get_channel(int(self.log_id))
         if log_ch:
             file = await generate_transcript(it.channel)
@@ -91,7 +90,7 @@ class TicketView(ui.View):
             ch = await it.guild.create_text_channel(name=f"ticket-{it.user.name}", overwrites={it.guild.default_role: discord.PermissionOverwrite(read_messages=False), it.user: discord.PermissionOverwrite(read_messages=True, send_messages=True)})
             emb = discord.Embed(title="Suporte", description=self.config['info_pos'], color=0x5865F2)
             await ch.send(content=it.user.mention, embed=emb, view=TicketActions(self.config['log_id']))
-            await it.response.send_message(f"✅ Criado: {ch.mention}", ephemeral=True)
+            await it.response.send_message(f"✅ Ticket aberto: {ch.mention}", ephemeral=True)
         select.callback = cb; self.add_item(select)
 
 # --- COMANDOS ---
@@ -122,7 +121,6 @@ async def rr(ctx):
 
 @bot.tree.command(name="setup_painel")
 async def setup_painel(it: discord.Interaction):
-    # O SEGREDO: responder ao discord antes do banco de dados
     await it.response.defer(ephemeral=True) 
     try:
         dados = await collection.find_one({"_id": it.guild_id})
@@ -146,3 +144,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+            
