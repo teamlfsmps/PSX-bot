@@ -20,11 +20,11 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✅ Sistema PSX v9.0 Ativo")
+        print(f"✅ Sistema PSX v10.0 Online")
 
 bot = MyBot()
 
-# --- UTILITÁRIOS ---
+# --- UTILITÁRIOS TICKETS ---
 async def generate_transcript(channel):
     transcript = f"--- HISTÓRICO DE ATENDIMENTO PSX ---\nCanal: {channel.name}\n\n"
     async for msg in channel.history(limit=None, oldest_first=True):
@@ -32,7 +32,7 @@ async def generate_transcript(channel):
         transcript += f"[{time}] {msg.author}: {msg.content if msg.content else '[Anexo]'}\n"
     return io.BytesIO(transcript.encode('utf-8'))
 
-# --- FEEDBACK ---
+# --- FEEDBACK TICKETS ---
 class FeedbackModal(ui.Modal):
     def __init__(self, nota, log_id, user_id):
         super().__init__(title="Avalie nosso Atendimento")
@@ -57,14 +57,14 @@ class EvalView(ui.View):
     async def callback(self, it, select):
         await it.response.send_modal(FeedbackModal(select.values[0], self.log_id, self.user_id))
 
-# --- FECHAMENTO COM MOTIVO ---
+# --- FECHAMENTO TICKET ---
 class CloseTicketModal(ui.Modal):
     def __init__(self, log_id, owner_id):
         super().__init__(title="Encerrar Atendimento")
         self.log_id, self.owner_id = log_id, owner_id
     motivo = ui.TextInput(label="Motivo do Fechamento:", style=discord.TextStyle.paragraph, required=True)
     async def on_submit(self, it: discord.Interaction):
-        await it.response.send_message("🔒 **Gerando logs e encerrando...**")
+        await it.response.send_message("🔒 **Gerando logs...**")
         log_ch = bot.get_channel(int(self.log_id))
         file_data = await generate_transcript(it.channel)
         if log_ch:
@@ -97,7 +97,6 @@ class TicketActions(ui.View):
     async def close(self, it, button):
         await it.response.send_modal(CloseTicketModal(self.log_id, self.owner_id))
 
-# --- ABERTURA TICKET ---
 class OpenTicketModal(ui.Modal):
     def __init__(self, cat_nome, config):
         super().__init__(title=f"Abertura: {cat_nome}")
@@ -107,12 +106,6 @@ class OpenTicketModal(ui.Modal):
         ch = await it.guild.create_text_channel(name=f"🎫-{self.cat_nome}-{it.user.name}", overwrites={it.guild.default_role: discord.PermissionOverwrite(read_messages=False), it.user: discord.PermissionOverwrite(read_messages=True, send_messages=True)})
         emb = discord.Embed(title=f"**{self.config.get('titulo_ticket', 'Suporte')}**", description=f"{self.config['info_pos']}\n\n**Motivo:** {self.motivo.value}", color=0x5865F2)
         await ch.send(content=f"{it.user.mention}", embed=emb, view=TicketActions(self.config['log_id'], it.user.id))
-        log_ch = bot.get_channel(int(self.config['log_id']))
-        if log_ch:
-            log_emb = discord.Embed(title="Ticket Aberto", color=0x00FF00, timestamp=datetime.datetime.now())
-            log_emb.add_field(name="👤 Autor", value=f"{it.user.mention}", inline=True)
-            log_emb.add_field(name="📝 Motivo", value=self.motivo.value, inline=False)
-            await log_ch.send(embed=log_emb)
         await it.response.send_message(f"✅ Aberto em {ch.mention}", ephemeral=True)
 
 class TicketView(ui.View):
@@ -126,7 +119,7 @@ class TicketView(ui.View):
             await it.response.send_modal(OpenTicketModal(self.config['categorias'][idx]['nome'], self.config))
         select.callback = cb; self.add_item(select)
 
-# --- SISTEMA DE REGISTRO /RGSET ---
+# --- SISTEMA RGSET (VERSÃO FINAL) ---
 class RGActionView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -141,80 +134,19 @@ class RGActionView(ui.View):
 
 class RGSetModal(ui.Modal):
     def __init__(self):
-        super().__init__(title="Setagem")
-    nome_serv = ui.TextInput(label="Qual é o seu nome no servidor?", placeholder="Ex: Pedro", required=True)
-    id_serv = ui.TextInput(label="Qual Seu ID no Servidor?", placeholder="Ex: 123", required=True)
-    celular = ui.TextInput(label="Qual seu número de celular no servidor?", placeholder="Ex: 123-456", required=True)
-    recrutador = ui.TextInput(label="Quem te recrutou?", placeholder="Nome do recrutador", required=True)
+        super().__init__(title="Formulário de Setagem")
+    nome_serv = ui.TextInput(label="Nome no Servidor:", required=True)
+    id_serv = ui.TextInput(label="ID no Servidor:", required=True)
+    celular = ui.TextInput(label="Número de Celular:", required=True)
+    recrutador = ui.TextInput(label="Quem te recrutou?", required=True)
 
     async def on_submit(self, it: discord.Interaction):
         await it.response.send_message("⏳ Enviando RG, Aguarde.", ephemeral=True)
+        # Alteração: Barra Vermelha
         emb = discord.Embed(title="**📋 Novo Registro**", description=f"Novo set de {it.user.mention}", color=0xFF0000)
         emb.set_author(name=it.guild.name, icon_url=it.guild.icon.url if it.guild.icon else None)
-        emb.add_field(name="👤 **Nome:**", value=f"`{self.nome_serv.value}`", inline=False)
-        emb.add_field(name="🆔 **ID:**", value=f"`{self.id_serv.value}`", inline=False)
-        emb.add_field(name="📱 **Celular:**", value=f"`{self.celular.value}`", inline=False)
-        emb.add_field(name="\u200b", value="\u200b", inline=False) 
-        emb.add_field(name="📝 **Recrutador:**", value=f"`{self.recrutador.value}`", inline=False)
-        emb.set_thumbnail(url=it.user.display_avatar.url)
-        emb.set_footer(text="© Royal Bots™ | Todos os direitos reservados.")
-        await it.channel.send(content="@everyone", embed=emb, view=RGActionView())
-
-# --- COMANDOS ---
-@bot.tree.command(name="rgset", description="Inicia o formulário de registro.")
-async def rgset(it: discord.Interaction):
-    await it.response.send_modal(RGSetModal())
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def rr(ctx):
-    def check(m): return m.author == ctx.author and m.channel == ctx.channel
-    try:
-        await ctx.send("⚙️ 0- Título do Ticket:")
-        t_ticket = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 1- Descrição:")
-        desc = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 2- Banner (ou skip):")
-        banner = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 3- Thumbnail (ou skip):")
-        thumb = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 4- Footer:")
-        foot = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 5- Seções (Nome#Desc | Nome#Desc):")
-        raw = (await bot.wait_for('message', check=check)).content
-        cats = [{'nome': x.split('#')[0].strip(), 'desc': x.split('#')[1].strip()} for x in raw.split('|') if '#' in x]
-        await ctx.send("⚙️ 6- Texto pós-abertura:")
-        info = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 7- ID Log:")
-        log_id = (await bot.wait_for('message', check=check)).content
-        await collection.update_one({"_id": ctx.guild.id}, {"$set": {"titulo_ticket": t_ticket, "desc": desc, "banner": banner, "thumb": thumb, "footer": foot, "categorias": cats, "info_pos": info, "log_id": log_id}}, upsert=True)
-        await ctx.send("✅ Configurações salvas!")
-    except Exception as e: await ctx.send(f"❌ Erro: {e}")
-
-@bot.tree.command(name="setup_painel")
-async def setup_painel(it: discord.Interaction):
-    dados = await collection.find_one({"_id": it.guild_id})
-    if not dados: return await it.response.send_message("Rode `!rr` primeiro.", ephemeral=True)
-    emb = discord.Embed(title="Atendimento", description=dados['desc'], color=0x5865F2)
-    if dados['banner'].lower() != 'skip': emb.set_image(url=dados['banner'])
-    if dados['thumb'].lower() != 'skip': emb.set_thumbnail(url=dados['thumb'])
-    emb.set_footer(text=dados['footer'])
-    await it.channel.send(embed=emb, view=TicketView(dados))
-    await it.response.send_message("✅ Painel enviado!", ephemeral=True)
-
-@bot.tree.command(name="botdizer")
-async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor: str, banner: str = None, thumbnail: str = None, footer: str = None):
-    try:
-        color = int(cor.replace("#", ""), 16)
-        emb = discord.Embed(title=f"**{titulo}**", description=descricao, color=color)
-        if banner and banner.lower() != "skip": emb.set_image(url=banner)
-        if thumbnail and thumbnail.lower() != "skip": emb.set_thumbnail(url=thumbnail)
-        if footer and footer.lower() != "skip": emb.set_footer(text=footer)
-        await it.channel.send(embed=emb); await it.response.send_message("✅ Enviado!", ephemeral=True)
-    except: await it.response.send_message("❌ Erro no Hex.", ephemeral=True)
-
-@app.route('/')
-async def home(): return "Online"
-async def main(): await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=10000))
-if __name__ == "__main__": asyncio.run(main())
+        
+        # Alteração: Respostas na frente e com crases (caixa preta)
+        emb.add_field(name="👤 Nome:", value=f"`{self.nome_serv.value}`", inline=True)
+        emb.add_field(name="
         
