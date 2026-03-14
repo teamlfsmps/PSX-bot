@@ -20,7 +20,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✅ Sistema PSX v10.0 Online")
+        print(f"✅ Sistema PSX v11.0 Online | Slash Commands Sincronizados")
 
 bot = MyBot()
 
@@ -119,52 +119,49 @@ class TicketView(ui.View):
             await it.response.send_modal(OpenTicketModal(self.config['categorias'][idx]['nome'], self.config))
         select.callback = cb; self.add_item(select)
 
-# --- SISTEMA RGSET ---
-class RGActionView(ui.View):
+# --- SISTEMA DE REGISTRO (RGSET) ---
+class BotoesRegistro(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-    @ui.button(label="Aprovar", style=discord.ButtonStyle.success, emoji="✅")
-    async def approve(self, it, button):
-        await it.response.send_message("✅ Settagem aprovada!", ephemeral=False)
-        self.stop()
-    @ui.button(label="Rejeitar", style=discord.ButtonStyle.danger, emoji="❌")
-    async def reject(self, it, button):
-        await it.response.send_message("❌ Settagem rejeitada!", ephemeral=False)
-        self.stop()
 
-class RGSetModal(ui.Modal):
-    def __init__(self):
-        super().__init__(title="Formulário de Setagem")
-    nome_serv = ui.TextInput(label="Nome no Servidor:", required=True)
-    id_serv = ui.TextInput(label="ID no Servidor:", required=True)
-    celular = ui.TextInput(label="Número de Celular:", required=True)
-    recrutador = ui.TextInput(label="Quem te recrutou?", required=True)
+    @discord.ui.button(label="Aprovar", emoji="✅", style=discord.ButtonStyle.green)
+    async def aprovar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("✅ Settagem aprovada, aguarde a execução.")
 
-    async def on_submit(self, it: discord.Interaction):
-        await it.response.send_message("⏳ Enviando RG...", ephemeral=True)
-        emb = discord.Embed(title="**📋 Novo Registro**", description=f"Novo set de {it.user.mention}", color=0xFF0000)
-        emb.set_author(name=it.guild.name, icon_url=it.guild.icon.url if it.guild.icon else None)
+    @discord.ui.button(label="Rejeitar", emoji="❌", style=discord.ButtonStyle.red)
+    async def rejeitar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("❌ Pedido de Settagem rejeitada, tente novamente mais tarde.")
+
+class RegistroModal(discord.ui.Modal, title="Settagem"):
+    nome = discord.ui.TextInput(label="Qual é o seu Nick no jogo?", style=discord.TextStyle.short, required=True)
+    idade = discord.ui.TextInput(label="Quantos anos você tem?", style=discord.TextStyle.short, required=True)
+    nick_serv = discord.ui.TextInput(label="Qual é seu Nick no servidor?", style=discord.TextStyle.short, required=True)
+    recrutador = discord.ui.TextInput(label="Quem te recrutou?", style=discord.TextStyle.short, required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("📨 Enviando RG, aguarde.", ephemeral=True)
         
-        # Correção do erro de sintaxe aqui (f-strings e backticks unificados)
-        res_nome = f"`{self.nome_serv.value}`"
-        res_id = f"`{self.id_serv.value}`"
-        res_cel = f"`{self.celular.value}`"
-        res_rec = f"`{self.recrutador.value}`"
-
-        emb.add_field(name="👤 Nome:", value=res_nome, inline=True)
-        emb.add_field(name="🆔 ID:", value=res_id, inline=True)
-        emb.add_field(name="📱 Celular:", value=res_cel, inline=False)
-        emb.add_field(name="\u200b", value="\u200b", inline=False) 
-        emb.add_field(name="📝 Recrutador:", value=res_rec, inline=False)
+        embed = discord.Embed(title="📋 **Novo Registro**", color=discord.Color.red())
         
-        emb.set_thumbnail(url=it.user.display_avatar.url)
-        emb.set_footer(text="© Royal Bots™ | Todos os direitos reservados.")
-        await it.channel.send(content="@everyone", embed=emb, view=RGActionView())
+        # Correção: .value para pegar o texto dos campos
+        # Alteração: Formato "Pergunta: `Resposta`" e espaço antes do recrutador
+        embed.description = (
+            f"**Novo set de** {interaction.user.mention}\n\n"
+            f"**👤 Nome:** `{self.nome.value}`\n"
+            f"**🆔 Idade:** `{self.idade.value}`\n"
+            f"**🎮 Nick:** `{self.nick_serv.value}`\n\n"
+            f"**📝 Recrutador:** `{self.recrutador.value}`\n\n"
+            f"Rooter: ©Flamengo [BOT]™ | Todos os Direitos reservados."
+        )
+
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        # Envia no próprio canal onde o comando foi usado
+        await interaction.channel.send(content="@everyone", embed=embed, view=BotoesRegistro())
 
 # --- COMANDOS GERAIS ---
-@bot.tree.command(name="rgset")
-async def rgset(it: discord.Interaction):
-    await it.response.send_modal(RGSetModal())
+@bot.tree.command(name="rgset", description="Abrir formulário de registro")
+async def rgset(interaction: discord.Interaction):
+    await interaction.response.send_modal(RegistroModal())
 
 @bot.tree.command(name="botdizer")
 async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor_hex: str):
@@ -180,6 +177,8 @@ async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor_hex
 async def rr(ctx):
     def check(m): return m.author == ctx.author and m.channel == ctx.channel
     try:
+        await ctx.send("⚙️ Configurando Ticket...")
+        # ... (Mantendo a lógica de configuração do ticket via !rr)
         await ctx.send("⚙️ 0- Título Ticket:")
         t = (await bot.wait_for('message', check=check)).content
         await ctx.send("⚙️ 1- Descrição:")
@@ -213,7 +212,7 @@ async def setup_painel(it: discord.Interaction):
     await it.response.send_message("✅ Painel enviado!", ephemeral=True)
 
 @app.route('/')
-async def home(): return "Online"
+async def home(): return "Bot PSX Online"
 async def main(): await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=10000))
 if __name__ == "__main__": asyncio.run(main())
             
