@@ -119,17 +119,17 @@ class TicketView(ui.View):
             await it.response.send_modal(OpenTicketModal(self.config['categorias'][idx]['nome'], self.config))
         select.callback = cb; self.add_item(select)
 
-# --- SISTEMA RGSET (VERSÃO FINAL) ---
+# --- SISTEMA RGSET ---
 class RGActionView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     @ui.button(label="Aprovar", style=discord.ButtonStyle.success, emoji="✅")
     async def approve(self, it, button):
-        await it.response.send_message("✅ Settagem aprovada, aguarde a execução.", ephemeral=False)
+        await it.response.send_message("✅ Settagem aprovada!", ephemeral=False)
         self.stop()
     @ui.button(label="Rejeitar", style=discord.ButtonStyle.danger, emoji="❌")
     async def reject(self, it, button):
-        await it.response.send_message("❌ Pedido de Settagem rejeitada, tente novamente mais tarde.", ephemeral=False)
+        await it.response.send_message("❌ Settagem rejeitada!", ephemeral=False)
         self.stop()
 
 class RGSetModal(ui.Modal):
@@ -141,12 +141,79 @@ class RGSetModal(ui.Modal):
     recrutador = ui.TextInput(label="Quem te recrutou?", required=True)
 
     async def on_submit(self, it: discord.Interaction):
-        await it.response.send_message("⏳ Enviando RG, Aguarde.", ephemeral=True)
-        # Alteração: Barra Vermelha
+        await it.response.send_message("⏳ Enviando RG...", ephemeral=True)
         emb = discord.Embed(title="**📋 Novo Registro**", description=f"Novo set de {it.user.mention}", color=0xFF0000)
         emb.set_author(name=it.guild.name, icon_url=it.guild.icon.url if it.guild.icon else None)
         
-        # Alteração: Respostas na frente e com crases (caixa preta)
-        emb.add_field(name="👤 Nome:", value=f"`{self.nome_serv.value}`", inline=True)
-        emb.add_field(name="
+        # Correção do erro de sintaxe aqui (f-strings e backticks unificados)
+        res_nome = f"`{self.nome_serv.value}`"
+        res_id = f"`{self.id_serv.value}`"
+        res_cel = f"`{self.celular.value}`"
+        res_rec = f"`{self.recrutador.value}`"
+
+        emb.add_field(name="👤 Nome:", value=res_nome, inline=True)
+        emb.add_field(name="🆔 ID:", value=res_id, inline=True)
+        emb.add_field(name="📱 Celular:", value=res_cel, inline=False)
+        emb.add_field(name="\u200b", value="\u200b", inline=False) 
+        emb.add_field(name="📝 Recrutador:", value=res_rec, inline=False)
         
+        emb.set_thumbnail(url=it.user.display_avatar.url)
+        emb.set_footer(text="© Royal Bots™ | Todos os direitos reservados.")
+        await it.channel.send(content="@everyone", embed=emb, view=RGActionView())
+
+# --- COMANDOS GERAIS ---
+@bot.tree.command(name="rgset")
+async def rgset(it: discord.Interaction):
+    await it.response.send_modal(RGSetModal())
+
+@bot.tree.command(name="botdizer")
+async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor_hex: str):
+    try:
+        color = int(cor_hex.replace("#", ""), 16)
+        emb = discord.Embed(title=titulo, description=descricao, color=color)
+        await it.channel.send(embed=emb)
+        await it.response.send_message("✅ Enviado!", ephemeral=True)
+    except: await it.response.send_message("❌ Erro no Hex.", ephemeral=True)
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def rr(ctx):
+    def check(m): return m.author == ctx.author and m.channel == ctx.channel
+    try:
+        await ctx.send("⚙️ 0- Título Ticket:")
+        t = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 1- Descrição:")
+        d = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 2- Banner (skip):")
+        b = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 3- Thumb (skip):")
+        th = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 4- Footer:")
+        f = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 5- Seções (N#D | N#D):")
+        r = (await bot.wait_for('message', check=check)).content
+        cs = [{'nome': x.split('#')[0].strip(), 'desc': x.split('#')[1].strip()} for x in r.split('|') if '#' in x]
+        await ctx.send("⚙️ 6- Texto Pós-Abertura:")
+        i = (await bot.wait_for('message', check=check)).content
+        await ctx.send("⚙️ 7- ID Log:")
+        l = (await bot.wait_for('message', check=check)).content
+        await collection.update_one({"_id": ctx.guild.id}, {"$set": {"titulo_ticket": t, "desc": d, "banner": b, "thumb": th, "footer": f, "categorias": cs, "info_pos": i, "log_id": l}}, upsert=True)
+        await ctx.send("✅ Configurações salvas!")
+    except Exception as e: await ctx.send(f"❌ Erro: {e}")
+
+@bot.tree.command(name="setup_painel")
+async def setup_painel(it: discord.Interaction):
+    dados = await collection.find_one({"_id": it.guild_id})
+    if not dados: return await it.response.send_message("Rode `!rr` primeiro.", ephemeral=True)
+    emb = discord.Embed(title="Atendimento", description=dados['desc'], color=0x5865F2)
+    if dados['banner'].lower() != 'skip': emb.set_image(url=dados['banner'])
+    if dados['thumb'].lower() != 'skip': emb.set_thumbnail(url=dados['thumb'])
+    emb.set_footer(text=dados['footer'])
+    await it.channel.send(embed=emb, view=TicketView(dados))
+    await it.response.send_message("✅ Painel enviado!", ephemeral=True)
+
+@app.route('/')
+async def home(): return "Online"
+async def main(): await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=10000))
+if __name__ == "__main__": asyncio.run(main())
+            
