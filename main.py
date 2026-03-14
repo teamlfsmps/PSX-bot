@@ -178,8 +178,6 @@ class RegistroModal(discord.ui.Modal, title="Registro / Settagem"):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        # ANTI MULTI REGISTRO
-
         for registro in db["historico"]:
             if registro["usuario"] == interaction.user.id:
 
@@ -232,7 +230,7 @@ async def rgset(interaction: discord.Interaction):
 
     await interaction.response.send_modal(RegistroModal())
 
-# BOTDIZER PROFISSIONAL
+# BOTDIZER
 
 @bot.tree.command(name="botdizer")
 @app_commands.describe(
@@ -254,6 +252,8 @@ async def botdizer(
     thumbnail: str = None,
     banner: str = None
 ):
+
+    await interaction.response.defer(ephemeral=True)
 
     cor_embed = discord.Color.red()
 
@@ -277,7 +277,7 @@ async def botdizer(
 
     await canal.send(embed=embed)
 
-    await interaction.response.send_message(
+    await interaction.followup.send(
         "Mensagem enviada.",
         ephemeral=True
     )
@@ -288,9 +288,11 @@ async def botdizer(
 @app_commands.describe(mensagem="Mensagem que o bot irá falar")
 async def botdizer2(interaction: discord.Interaction, mensagem: str):
 
+    await interaction.response.defer(ephemeral=True)
+
     await interaction.channel.send(mensagem)
 
-    await interaction.response.send_message(
+    await interaction.followup.send(
         "Mensagem enviada.",
         ephemeral=True
     )
