@@ -16,11 +16,10 @@ class Bot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print("BOT ONLINE")
 
 bot = Bot()
 
-# ================= IDS =================
+# IDS
 
 CANAL_LOGS_APROVADOS = 1482358707529711626
 CANAL_LOGS_REJEITADOS = 1482358743176974519
@@ -33,7 +32,7 @@ contador_aprovados = 0
 contador_rejeitados = 0
 mensagem_contador = None
 
-# ================= BANCO JSON =================
+# DATABASE
 
 def carregar_db():
 
@@ -65,7 +64,7 @@ def salvar_db(data):
 
 db = carregar_db()
 
-# ================= DATA PT =================
+# DATA EM PORTUGUÊS
 
 def data_pt():
 
@@ -83,7 +82,7 @@ def data_pt():
 
     return f"{dias[agora.weekday()]}, {agora.day} de {meses[agora.month-1]} de {agora.year} às {agora.strftime('%H:%M')}"
 
-# ================= CONTADOR =================
+# CONTADOR
 
 async def atualizar_contador():
 
@@ -101,14 +100,11 @@ async def atualizar_contador():
     )
 
     if mensagem_contador is None:
-
         mensagem_contador = await canal.send(embed=embed)
-
     else:
-
         await mensagem_contador.edit(embed=embed)
 
-# ================= BOTÕES =================
+# BOTÕES
 
 class RegistroBotoes(discord.ui.View):
 
@@ -129,12 +125,9 @@ class RegistroBotoes(discord.ui.View):
                 "❌ Apenas STAFF pode usar este botão.",
                 ephemeral=True
             )
-
             return False
 
         return True
-
-# ================= APROVAR =================
 
     @discord.ui.button(label="Aprovar", style=discord.ButtonStyle.green, emoji="✅")
     async def aprovar(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -149,52 +142,14 @@ class RegistroBotoes(discord.ui.View):
 
         contador_aprovados += 1
         db["aprovados"] = contador_aprovados
-
-        registro = {
-            "usuario": self.autor,
-            "nome": self.nome,
-            "idade": self.idade,
-            "nick": self.nick,
-            "recrutador": self.recrutador,
-            "staff": interaction.user.id,
-            "resultado":"aprovado",
-            "data": data_pt()
-        }
-
-        db["historico"].append(registro)
         salvar_db(db)
 
         await atualizar_contador()
 
-        canal_logs = bot.get_channel(CANAL_LOGS_APROVADOS)
-
-        embed = discord.Embed(
-            description=f"""
-**Aprovado✅**
-
-**Novo resultado de:** <@{self.autor}> aprovado
-
-👤 **Nome:** `{self.nome}`
-🆔 **Idade:** `{self.idade}`
-🎮 **Nick:** `{self.nick}`
-📂 **ID do Discord:** `{self.autor}`
-
-📝 **Responsável:** {interaction.user.mention}
-📅 **Data da aprovação:** {data_pt()}
-""",
-            color=0x2ecc71
-        )
-
-        embed.set_footer(text="©Flamengo [BOT]™ | Todos os Direitos reservados.")
-
-        await canal_logs.send(embed=embed)
-
         await interaction.response.edit_message(
-            content="✅ Settagem aprovada, aguarde a execução.",
+            content="```\n✅ Settagem aprovada, aguarde a execução.\n```",
             view=None
         )
-
-# ================= REJEITAR =================
 
     @discord.ui.button(label="Rejeitar", style=discord.ButtonStyle.red, emoji="❌")
     async def rejeitar(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -203,52 +158,16 @@ class RegistroBotoes(discord.ui.View):
 
         contador_rejeitados += 1
         db["rejeitados"] = contador_rejeitados
-
-        registro = {
-            "usuario": self.autor,
-            "nome": self.nome,
-            "idade": self.idade,
-            "nick": self.nick,
-            "recrutador": self.recrutador,
-            "staff": interaction.user.id,
-            "resultado":"rejeitado",
-            "data": data_pt()
-        }
-
-        db["historico"].append(registro)
         salvar_db(db)
 
         await atualizar_contador()
 
-        canal_logs = bot.get_channel(CANAL_LOGS_REJEITADOS)
-
-        embed = discord.Embed(
-            description=f"""
-**Rejeitado❌**
-
-**Novo resultado de:** <@{self.autor}> rejeitado
-
-👤 **Nome:** `{self.nome}`
-🆔 **Idade:** `{self.idade}`
-🎮 **Nick:** `{self.nick}`
-📂 **ID do Discord:** `{self.autor}`
-
-📝 **Responsável:** {interaction.user.mention}
-📅 **Data:** {data_pt()}
-""",
-            color=0xe74c3c
-        )
-
-        embed.set_footer(text="©Flamengo [BOT]™ | Todos os Direitos reservados.")
-
-        await canal_logs.send(embed=embed)
-
         await interaction.response.edit_message(
-            content="❌ Registro rejeitado.",
+            content="```\n❌ Registro rejeitado.\n```",
             view=None
         )
 
-# ================= MODAL =================
+# MODAL RGSET
 
 class RegistroModal(discord.ui.Modal, title="Registro / Settagem"):
 
@@ -259,16 +178,35 @@ class RegistroModal(discord.ui.Modal, title="Registro / Settagem"):
 
     async def on_submit(self, interaction: discord.Interaction):
 
+        # ANTI MULTI REGISTRO
+
+        for registro in db["historico"]:
+            if registro["usuario"] == interaction.user.id:
+
+                await interaction.response.send_message(
+                    "❌ Este usuário já possui um registro no sistema.",
+                    ephemeral=True
+                )
+                return
+
         embed = discord.Embed(
             title="📋 Novo Registro",
             description=f"Novo set de {interaction.user.mention}",
             color=discord.Color.red()
         )
 
-        embed.add_field(name="👤 Nome", value=self.nome.value, inline=False)
-        embed.add_field(name="🆔 Idade", value=self.idade.value, inline=True)
-        embed.add_field(name="🎮 Nick", value=self.nick.value, inline=True)
-        embed.add_field(name="📝 Recrutador", value=self.recrutador.value, inline=False)
+        embed.set_author(
+            name=interaction.guild.name,
+            icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+        )
+
+        embed.add_field(name="👤 Nome", value=f"`{self.nome.value}`", inline=False)
+        embed.add_field(name="🆔 Idade", value=f"`{self.idade.value}`", inline=False)
+        embed.add_field(name="🎮 Nick", value=f"`{self.nick.value}`", inline=False)
+
+        embed.add_field(name="\u200b", value="\u200b", inline=False)
+
+        embed.add_field(name="📝 Recrutador", value=f"`{self.recrutador.value}`", inline=False)
 
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
@@ -287,14 +225,77 @@ class RegistroModal(discord.ui.Modal, title="Registro / Settagem"):
             )
         )
 
-# ================= COMANDO RGSET =================
+# COMANDO RGSET
 
 @bot.tree.command(name="rgset")
 async def rgset(interaction: discord.Interaction):
 
     await interaction.response.send_modal(RegistroModal())
 
-# ================= HISTÓRICO =================
+# BOTDIZER PROFISSIONAL
+
+@bot.tree.command(name="botdizer")
+@app_commands.describe(
+    canal="Canal onde será enviada",
+    descricao="Descrição da mensagem",
+    titulo="Título",
+    footer="Rodapé",
+    cor="Cor em HEX (#176387)",
+    thumbnail="Link da thumbnail",
+    banner="Link do banner"
+)
+async def botdizer(
+    interaction: discord.Interaction,
+    canal: discord.TextChannel,
+    descricao: str,
+    titulo: str = None,
+    footer: str = None,
+    cor: str = None,
+    thumbnail: str = None,
+    banner: str = None
+):
+
+    cor_embed = discord.Color.red()
+
+    if cor:
+        cor_embed = discord.Color(int(cor.replace("#",""),16))
+
+    embed = discord.Embed(
+        title=f"**{titulo}**" if titulo else None,
+        description=descricao,
+        color=cor_embed
+    )
+
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
+
+    if banner:
+        embed.set_image(url=banner)
+
+    if footer:
+        embed.set_footer(text=footer)
+
+    await canal.send(embed=embed)
+
+    await interaction.response.send_message(
+        "Mensagem enviada.",
+        ephemeral=True
+    )
+
+# BOTDIZER2
+
+@bot.tree.command(name="botdizer2")
+@app_commands.describe(mensagem="Mensagem que o bot irá falar")
+async def botdizer2(interaction: discord.Interaction, mensagem: str):
+
+    await interaction.channel.send(mensagem)
+
+    await interaction.response.send_message(
+        "Mensagem enviada.",
+        ephemeral=True
+    )
+
+# HISTÓRICO
 
 @bot.tree.command(name="historicorgset")
 async def historicorgset(interaction: discord.Interaction, usuario: discord.Member):
@@ -339,20 +340,4 @@ async def historicorgset(interaction: discord.Interaction, usuario: discord.Memb
 
     await interaction.response.send_message(embed=embed)
 
-# ================= KEEP ALIVE =================
-
-from quart import Quart
-
-app = Quart(__name__)
-
-@app.route("/")
-async def home():
-    return "Bot online"
-
-async def main():
-    await asyncio.gather(
-        bot.start(TOKEN),
-        app.run_task(host="0.0.0.0", port=10000)
-    )
-
-asyncio.run(main())
+bot.run(TOKEN)
