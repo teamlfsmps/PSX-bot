@@ -20,7 +20,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✅ Sistema PSX v11.0 Online | Slash Commands Sincronizados")
+        print(f"✅ Sistema PSX v12.0 Online")
 
 bot = MyBot()
 
@@ -126,11 +126,13 @@ class BotoesRegistro(discord.ui.View):
 
     @discord.ui.button(label="Aprovar", emoji="✅", style=discord.ButtonStyle.green)
     async def aprovar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("✅ Settagem aprovada, aguarde a execução.")
+        # AJUSTE 3: Mensagem formatada e remoção dos botões
+        await interaction.response.edit_message(content=f"```✅ Settagem aprovada, aguarde a execução.```", view=None)
 
     @discord.ui.button(label="Rejeitar", emoji="❌", style=discord.ButtonStyle.red)
     async def rejeitar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("❌ Pedido de Settagem rejeitada, tente novamente mais tarde.")
+        # AJUSTE 3: Mensagem formatada e remoção dos botões
+        await interaction.response.edit_message(content=f"```❌ Pedido de Settagem rejeitada, tente novamente mais tarde.```", view=None)
 
 class RegistroModal(discord.ui.Modal, title="Settagem"):
     nome = discord.ui.TextInput(label="Qual é o seu Nick no jogo?", style=discord.TextStyle.short, required=True)
@@ -143,19 +145,20 @@ class RegistroModal(discord.ui.Modal, title="Settagem"):
         
         embed = discord.Embed(title="📋 **Novo Registro**", color=discord.Color.red())
         
-        # Correção: .value para pegar o texto dos campos
-        # Alteração: Formato "Pergunta: `Resposta`" e espaço antes do recrutador
+        # AJUSTE 2: Perfil do servidor (Foto e Nome) no Author
+        embed.set_author(name=interaction.guild.name, icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
+        
+        # AJUSTE 1: Removida a palavra ROOTER do rodapé
         embed.description = (
             f"**Novo set de** {interaction.user.mention}\n\n"
             f"**👤 Nome:** `{self.nome.value}`\n"
             f"**🆔 Idade:** `{self.idade.value}`\n"
             f"**🎮 Nick:** `{self.nick_serv.value}`\n\n"
             f"**📝 Recrutador:** `{self.recrutador.value}`\n\n"
-            f"Rooter: ©Flamengo [BOT]™ | Todos os Direitos reservados."
+            f"©Flamengo [BOT]™ | Todos os Direitos reservados."
         )
 
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
-        # Envia no próprio canal onde o comando foi usado
         await interaction.channel.send(content="@everyone", embed=embed, view=BotoesRegistro())
 
 # --- COMANDOS GERAIS ---
@@ -177,8 +180,6 @@ async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor_hex
 async def rr(ctx):
     def check(m): return m.author == ctx.author and m.channel == ctx.channel
     try:
-        await ctx.send("⚙️ Configurando Ticket...")
-        # ... (Mantendo a lógica de configuração do ticket via !rr)
         await ctx.send("⚙️ 0- Título Ticket:")
         t = (await bot.wait_for('message', check=check)).content
         await ctx.send("⚙️ 1- Descrição:")
@@ -212,7 +213,7 @@ async def setup_painel(it: discord.Interaction):
     await it.response.send_message("✅ Painel enviado!", ephemeral=True)
 
 @app.route('/')
-async def home(): return "Bot PSX Online"
+async def home(): return "Online"
 async def main(): await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=10000))
 if __name__ == "__main__": asyncio.run(main())
             
