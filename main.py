@@ -1,50 +1,35 @@
 import discord
 from discord.ext import commands
 from discord import ui, app_commands
-import os, asyncio, datetime, io
-from motor.motor_asyncio import AsyncIOMotorClient
-from quart import Quart
+import os, asyncio, datetime
 
-TOKEN = os.environ.get('DISCORD_TOKEN')
-MONGO_URL = "mongodb+srv://PSX:psx2026@cluster0.dbttxsf.mongodb.net/?retryWrites=true&w=majority"
-
-app = Quart(__name__)
-
-cluster = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=10000)
-db = cluster["psx_bot"]
-collection = db["config_tickets"]
+TOKEN = os.environ.get("DISCORD_TOKEN")
 
 intents = discord.Intents.all()
 
 class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix='!', intents=intents, help_command=None)
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
         await self.tree.sync()
-        print("✅ Sistema PSX v12.0 Online")
+        print("✅ PSX BOT ONLINE")
 
 bot = MyBot()
 
-# ===============================
-# UTILITÁRIO TRANSCRIPT
-# ===============================
+# =========================
+# IDS CONFIG
+# =========================
 
-async def generate_transcript(channel):
+CANAL_LOGS = 1482358707529711626
+CANAL_CONTADOR = 1482372644870422579
+CARGO_APROVADO = 1482371950335627304
 
-    transcript = f"--- HISTÓRICO DE ATENDIMENTO PSX ---\nCanal: {channel.name}\n\n"
+registro_contador = 0
 
-    async for msg in channel.history(limit=None, oldest_first=True):
-
-        time = msg.created_at.strftime('%H:%M')
-
-        transcript += f"[{time}] {msg.author}: {msg.content if msg.content else '[Anexo]'}\n"
-
-    return io.BytesIO(transcript.encode('utf-8'))
-
-# ===============================
-# SISTEMA DE REGISTRO
-# ===============================
+# =========================
+# BOTÕES DE REGISTRO
+# =========================
 
 class BotoesRegistro(discord.ui.View):
 
@@ -55,97 +40,147 @@ class BotoesRegistro(discord.ui.View):
         self.nick = nick
         self.user_id = user_id
 
+    async def interaction_check(self, interaction: discord.Interaction):
+
+        if not interaction.user.guild_permissions.manage_roles:
+
+            await interaction.response.send_message(
+                "❌ Apenas **staff** pode usar estes botões.",
+                ephemeral=True
+            )
+            return False
+
+        return True
+
+# =========================
+# BOTÃO APROVAR
+# =========================
+
     @discord.ui.button(label="Aprovar", emoji="✅", style=discord.ButtonStyle.green)
     async def aprovar(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        global registro_contador
 
         await interaction.response.edit_message(
             content="```✅ Settagem aprovada, aguarde a execução.```",
             view=None
         )
 
-        log_channel = interaction.guild.get_channel(1482358707529711626)
+        membro = interaction.guild.get_member(self.user_id)
+        cargo = interaction.guild.get_role(CARGO_APROVADO)
+
+        if membro and cargo:
+            await membro.add_roles(cargo)
+
+        registro_contador += 1
+
+        contador_canal = bot.get_channel(CANAL_CONTADOR)
+
+        if contador_canal:
+            await contador_canal.send(f"📊 **Registros aprovados:** `{registro_contador}`")
+
+        log_channel = bot.get_channel(CANAL_LOGS)
 
         if log_channel:
 
             embed = discord.Embed(
-                description=(
-                    f"**Novo resultado de: <@{self.user_id}> aprovado**\n\n"
-                    f"**👤 Nome:** `{self.nome}`\n"
-                    f"**🆔 Idade:** `{self.idade}`\n"
-                    f"**🎮 Nick:** `{self.nick}`\n"
-                    f"**📂ID do Discord:** `{self.user_id}`\n\n"
-                    f"**📝 Responsável:** {interaction.user.mention}\n"
-                    f"**📅 Data da aprovação:** <t:{int(datetime.datetime.now().timestamp())}:F>\n\n"
-                    f"©Flamengo [BOT]™ | Todos os Direitos reservados."
-                ),
-                color=0x2ecc71
+                title="✅ Registro Aprovado",
+                color=0x2ecc71,
+                timestamp=datetime.datetime.now()
             )
 
+            embed.add_field(name="👤 Usuário", value=f"<@{self.user_id}>", inline=True)
+            embed.add_field(name="🆔 ID", value=self.user_id, inline=True)
+
+            embed.add_field(name="Nome", value=f"`{self.nome}`", inline=False)
+            embed.add_field(name="Idade", value=f"`{self.idade}`", inline=True)
+            embed.add_field(name="Nick", value=f"`{self.nick}`", inline=True)
+
+            embed.add_field(
+                name="👮 Staff Responsável",
+                value=interaction.user.mention,
+                inline=False
+            )
+
+            embed.set_footer(text="©Flamengo [BOT]™ | Sistema de Registros")
+
             await log_channel.send(embed=embed)
+
+# =========================
+# BOTÃO REJEITAR
+# =========================
 
     @discord.ui.button(label="Rejeitar", emoji="❌", style=discord.ButtonStyle.red)
     async def rejeitar(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         await interaction.response.edit_message(
-            content="```❌ Pedido de Settagem rejeitada, tente novamente mais tarde.```",
+            content="```❌ Registro rejeitado.```",
             view=None
         )
 
-        log_channel = interaction.guild.get_channel(1482358707529711626)
+        log_channel = bot.get_channel(CANAL_LOGS)
 
         if log_channel:
 
             embed = discord.Embed(
-                description=(
-                    f"**Novo resultado de: <@{self.user_id}> rejeitado**\n\n"
-                    f"**👤 Nome:** `{self.nome}`\n"
-                    f"**🆔 Idade:** `{self.idade}`\n"
-                    f"**🎮 Nick:** `{self.nick}`\n"
-                    f"**📂ID do Discord:** `{self.user_id}`\n\n"
-                    f"**📝 Responsável:** {interaction.user.mention}\n"
-                    f"**📅 Data da rejeição:** <t:{int(datetime.datetime.now().timestamp())}:F>\n\n"
-                    f"©Flamengo [BOT]™ | Todos os Direitos reservados."
-                ),
-                color=0xe74c3c
+                title="❌ Registro Rejeitado",
+                color=0xe74c3c,
+                timestamp=datetime.datetime.now()
             )
+
+            embed.add_field(name="👤 Usuário", value=f"<@{self.user_id}>", inline=True)
+            embed.add_field(name="🆔 ID", value=self.user_id, inline=True)
+
+            embed.add_field(name="Nome", value=f"`{self.nome}`", inline=False)
+            embed.add_field(name="Idade", value=f"`{self.idade}`", inline=True)
+            embed.add_field(name="Nick", value=f"`{self.nick}`", inline=True)
+
+            embed.add_field(
+                name="👮 Staff Responsável",
+                value=interaction.user.mention,
+                inline=False
+            )
+
+            embed.set_footer(text="©Flamengo [BOT]™ | Sistema de Registros")
 
             await log_channel.send(embed=embed)
 
-# ===============================
-# MODAL REGISTRO
-# ===============================
+# =========================
+# MODAL DE REGISTRO
+# =========================
 
 class RegistroModal(discord.ui.Modal, title="Settagem"):
 
-    nome = discord.ui.TextInput(label="Qual é o seu Nick no jogo?")
-    idade = discord.ui.TextInput(label="Quantos anos você tem?")
-    nick_serv = discord.ui.TextInput(label="Qual é seu Nick no servidor?")
-    recrutador = discord.ui.TextInput(label="Quem te recrutou?")
+    nome = discord.ui.TextInput(label="Nick no jogo")
+    idade = discord.ui.TextInput(label="Idade")
+    nick_serv = discord.ui.TextInput(label="Nick no servidor")
+    recrutador = discord.ui.TextInput(label="Recrutador")
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        await interaction.response.send_message("📨 Enviando RG, aguarde.", ephemeral=True)
+        await interaction.response.send_message(
+            "📨 Registro enviado.",
+            ephemeral=True
+        )
 
-        embed = discord.Embed(title="📋 **Novo Registro**", color=discord.Color.red())
-
-        embed.set_author(
-            name=interaction.guild.name,
-            icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+        embed = discord.Embed(
+            title="📋 Novo Registro",
+            color=discord.Color.red()
         )
 
         embed.description = (
             f"**Novo set de** {interaction.user.mention}\n\n"
-            f"**👤 Nome:** `{self.nome.value}`\n"
-            f"**🆔 Idade:** `{self.idade.value}`\n"
-            f"**🎮 Nick:** `{self.nick_serv.value}`\n\n"
-            f"**📝 Recrutador:** `{self.recrutador.value}`\n\n"
-            f"©Flamengo [BOT]™ | Todos os Direitos reservados."
+            f"👤 **Nome:** `{self.nome.value}`\n"
+            f"🆔 **Idade:** `{self.idade.value}`\n"
+            f"🎮 **Nick:** `{self.nick_serv.value}`\n\n"
+            f"📝 **Recrutador:** `{self.recrutador.value}`"
         )
 
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
+        embed.set_footer(text="©Flamengo [BOT]™")
+
         await interaction.channel.send(
-            content="@everyone",
             embed=embed,
             view=BotoesRegistro(
                 self.nome.value,
@@ -155,49 +190,62 @@ class RegistroModal(discord.ui.Modal, title="Settagem"):
             )
         )
 
-# ===============================
-# COMANDOS
-# ===============================
+# =========================
+# COMANDO RGSET
+# =========================
 
 @bot.tree.command(name="rgset", description="Abrir formulário de registro")
 async def rgset(interaction: discord.Interaction):
+
     await interaction.response.send_modal(RegistroModal())
 
-# ===============================
-# BOTDIZER
-# ===============================
+# =========================
+# COMANDO BOTDIZER
+# =========================
 
-@bot.tree.command(name="botdizer")
-async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor_hex: str):
+@bot.tree.command(name="botdizer", description="Enviar embed personalizado")
+async def botdizer(
+    interaction: discord.Interaction,
+    titulo: str,
+    descricao: str,
+    cor_hex: str
+):
 
     try:
 
-        color = int(cor_hex.replace("#", ""), 16)
+        cor = int(cor_hex.replace("#", ""), 16)
 
-        emb = discord.Embed(
+        embed = discord.Embed(
             title=titulo,
             description=descricao,
-            color=color
+            color=cor
         )
 
-        await it.channel.send(embed=emb)
+        await interaction.channel.send(embed=embed)
 
-        await it.response.send_message("✅ Enviado!", ephemeral=True)
+        await interaction.response.send_message(
+            "✅ Embed enviado.",
+            ephemeral=True
+        )
 
     except:
+        await interaction.response.send_message(
+            "❌ Cor HEX inválida.",
+            ephemeral=True
+        )
 
-        await it.response.send_message("❌ Erro no Hex.", ephemeral=True)
+# =========================
+# WEB KEEP ALIVE
+# =========================
 
-# ===============================
-# WEB SERVER
-# ===============================
+from quart import Quart
+app = Quart(__name__)
 
-@app.route('/')
+@app.route("/")
 async def home():
-    return "Online"
+    return "Bot Online"
 
 async def main():
-
     await asyncio.gather(
         bot.start(TOKEN),
         app.run_task(host="0.0.0.0", port=10000)
