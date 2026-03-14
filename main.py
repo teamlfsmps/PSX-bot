@@ -20,7 +20,7 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✅ Sistema PSX v7.0 Ativo")
+        print(f"✅ Sistema PSX v8.0 Ativo")
 
 bot = MyBot()
 
@@ -126,7 +126,7 @@ class TicketView(ui.View):
             await it.response.send_modal(OpenTicketModal(self.config['categorias'][idx]['nome'], self.config))
         select.callback = cb; self.add_item(select)
 
-# --- SISTEMA DE REGISTRO /RGSET ---
+# --- SISTEMA DE REGISTRO /RGSET (COM ALTERAÇÕES DE FONTE E ESPAÇO) ---
 class RGActionView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -134,87 +134,5 @@ class RGActionView(ui.View):
     async def approve(self, it, button):
         await it.response.send_message("Settagem aprovada, aguarde a execução.", ephemeral=False)
         self.stop()
-    @ui.button(label="Rejeitar", style=discord.ButtonStyle.danger, emoji="❌")
-    async def reject(self, it, button):
-        await it.response.send_message("Pedido de Settagem rejeitada, tente novamente mais tarde.", ephemeral=False)
-        self.stop()
-
-class RGSetModal(ui.Modal):
-    def __init__(self):
-        super().__init__(title="Settagem")
-    nick = ui.TextInput(label="Qual é o seu Nick no jogo?", placeholder="Ex: pedrindu_graukkj", required=True)
-    idade = ui.TextInput(label="Quantos anos você tem?", placeholder="Ex: 18", required=True)
-    recrutador = ui.TextInput(label="Quem te recrutou?", placeholder="Ex: Capitão Nascimento", required=True)
-
-    async def on_submit(self, it: discord.Interaction):
-        await it.response.send_message("Enviando RG, Aguarde.", ephemeral=True)
-        
-        emb = discord.Embed(title="**📋 Novo Registro**", description=f"Novo set de {it.user.mention}", color=0x2F3136)
-        emb.set_author(name=bot.user.name, icon_url=bot.user.display_avatar.url)
-        emb.add_field(name="**👤 Nome:**", value=f"**{it.user.name}**", inline=False)
-        emb.add_field(name="**🆔 Idade:**", value=f"**{self.idade.value}**", inline=False)
-        emb.add_field(name="**🎮 Nick:**", value=f"**{self.nick.value}**", inline=False)
-        emb.add_field(name="**📝 Recrutador:**", value=f"**{self.recrutador.value}**", inline=False)
-        emb.set_thumbnail(url=it.user.display_avatar.url)
-        emb.set_footer(text="©Flamengo [BOT]™ | Todos os Direitos reservados.")
-        
-        await it.channel.send(embed=emb, view=RGActionView())
-
-# --- COMANDOS ---
-@bot.tree.command(name="rgset", description="Inicia o formulário de registro/settagem.")
-async def rgset(it: discord.Interaction):
-    await it.response.send_modal(RGSetModal())
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def rr(ctx):
-    def check(m): return m.author == ctx.author and m.channel == ctx.channel
-    try:
-        await ctx.send("⚙️ 0- Título do Ticket:")
-        t_ticket = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 1- Descrição:")
-        desc = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 2- Banner (ou skip):")
-        banner = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 3- Thumbnail (ou skip):")
-        thumb = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 4- Footer:")
-        foot = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 5- Seções (Nome#Desc | Nome#Desc):")
-        raw = (await bot.wait_for('message', check=check)).content
-        cats = [{'nome': x.split('#')[0].strip(), 'desc': x.split('#')[1].strip()} for x in raw.split('|') if '#' in x]
-        await ctx.send("⚙️ 6- Texto pós-abertura:")
-        info = (await bot.wait_for('message', check=check)).content
-        await ctx.send("⚙️ 7- ID Log:")
-        log_id = (await bot.wait_for('message', check=check)).content
-        await collection.update_one({"_id": ctx.guild.id}, {"$set": {"titulo_ticket": t_ticket, "desc": desc, "banner": banner, "thumb": thumb, "footer": foot, "categorias": cats, "info_pos": info, "log_id": log_id}}, upsert=True)
-        await ctx.send("✅ Configurações salvas!")
-    except Exception as e: await ctx.send(f"❌ Erro: {e}")
-
-@bot.tree.command(name="setup_painel")
-async def setup_painel(it: discord.Interaction):
-    dados = await collection.find_one({"_id": it.guild_id})
-    if not dados: return await it.response.send_message("Rode `!rr` primeiro.", ephemeral=True)
-    emb = discord.Embed(title="Atendimento", description=dados['desc'], color=0x5865F2)
-    if dados['banner'].lower() != 'skip': emb.set_image(url=dados['banner'])
-    if dados['thumb'].lower() != 'skip': emb.set_thumbnail(url=dados['thumb'])
-    emb.set_footer(text=dados['footer'])
-    await it.channel.send(embed=emb, view=TicketView(dados))
-    await it.response.send_message("✅ Painel enviado!", ephemeral=True)
-
-@bot.tree.command(name="botdizer")
-async def botdizer(it: discord.Interaction, titulo: str, descricao: str, cor: str, banner: str = None, thumbnail: str = None, footer: str = None):
-    try:
-        color = int(cor.replace("#", ""), 16)
-        emb = discord.Embed(title=f"**{titulo}**", description=descricao, color=color)
-        if banner and banner.lower() != "skip": emb.set_image(url=banner)
-        if thumbnail and thumbnail.lower() != "skip": emb.set_thumbnail(url=thumbnail)
-        if footer and footer.lower() != "skip": emb.set_footer(text=footer)
-        await it.channel.send(embed=emb); await it.response.send_message("✅ Enviado!", ephemeral=True)
-    except: await it.response.send_message("❌ Erro no Hex.", ephemeral=True)
-
-@app.route('/')
-async def home(): return "Online"
-async def main(): await asyncio.gather(bot.start(TOKEN), app.run_task(host="0.0.0.0", port=10000))
-if __name__ == "__main__": asyncio.run(main())
-            
+    @
+    
