@@ -7,6 +7,9 @@ from threading import Thread
 from datetime import datetime
 import json
 import os
+from PIL import Image, ImageDraw, ImageFont
+import requests
+from io import BytesIO
 
 TOKEN = os.getenv("TOKEN")
 
@@ -420,6 +423,63 @@ async def botdizer2(interaction: discord.Interaction, mensagem: str):
     )
 
     await interaction.channel.send(mensagem)
+
+
+# =========================
+# BANCO IDENTIDADES
+# =========================
+
+ARQUIVO_IDENTIDADE = "identidades.json"
+
+if not os.path.exists(ARQUIVO_IDENTIDADE):
+    with open(ARQUIVO_IDENTIDADE,"w") as f:
+        json.dump({"contador":0,"usuarios":{}},f)
+
+def carregar_identidades():
+    with open(ARQUIVO_IDENTIDADE) as f:
+        return json.load(f)
+
+def salvar_identidades(dados):
+    with open(ARQUIVO_IDENTIDADE,"w") as f:
+        json.dump(dados,f,indent=4)
+
+
+# =========================
+# GERAR RG (COLE AQUI)
+# =========================
+
+def gerar_rg(usuario, nick, nome_grito, cargo, perfil, numero):
+
+    img = Image.new("RGB",(600,350),(30,30,30))
+    draw = ImageDraw.Draw(img)
+
+    fonte = ImageFont.load_default()
+
+    draw.text((200,20),"IDENTIDADE - RG",fill=(255,255,255),font=fonte)
+
+    draw.text((40,100),f"Nick: {nick}",fill=(255,255,255),font=fonte)
+    draw.text((40,130),f"Nome de grito: {nome_grito}",fill=(255,255,255),font=fonte)
+    draw.text((40,160),f"Cargo: {cargo}",fill=(255,255,255),font=fonte)
+
+    draw.text((40,220),f"Perfil: {perfil}",fill=(200,200,200),font=fonte)
+    draw.text((40,260),f"ID Discord: {usuario.id}",fill=(200,200,200),font=fonte)
+
+    data=datetime.now().strftime("%d/%m/%Y")
+
+    draw.text((40,290),f"Data: {data}",fill=(200,200,200),font=fonte)
+    draw.text((420,290),f"Nº {numero}",fill=(255,255,255),font=fonte)
+
+    avatar_url=usuario.display_avatar.url
+    response=requests.get(avatar_url)
+
+    avatar=Image.open(BytesIO(response.content)).resize((120,120))
+
+    img.paste(avatar,(440,100))
+
+    caminho=f"rg_{usuario.id}.png"
+    img.save(caminho)
+
+    return caminho
 
 
 # =========================
