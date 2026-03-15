@@ -156,7 +156,6 @@ class RegistroModal(Modal, title="Settagem"):
 
         await interaction.channel.send(embed=embed, view=view)
 
-        # LOG
         canal_logs=bot.get_channel(CANAL_LOGS)
 
         log=discord.Embed(
@@ -232,7 +231,6 @@ class RegistroBotoes(View):
 
         await canal.send(embed=embed)
 
-        # LOG
         canal_logs=bot.get_channel(CANAL_LOGS)
 
         log=discord.Embed(
@@ -322,30 +320,106 @@ async def rgset(interaction:discord.Interaction):
     await interaction.response.send_modal(modal)
 
 @bot.tree.command(name="historicorgset")
-async def historicorgset(interaction:discord.Interaction):
+@app_commands.describe(usuario="Usuário para verificar o histórico")
+async def historicorgset(interaction: discord.Interaction, usuario: discord.Member):
 
-    dados=carregar()
+    dados = carregar()
 
-    texto=""
+    if str(usuario.id) not in dados:
 
-    for user,data in dados.items():
+        await interaction.response.send_message(
+            f"```Nenhum registro encontrado para {usuario}.```",
+            ephemeral=True
+        )
+        return
 
-        texto+=f"""
-**Usuário:** `<@{user}>`
-**Status:** `{data['status']}`
-**Nick:** `{data['nick']}`
-**Idade:** `{data['idade']}`
-**Recrutador:** `{data['recrutador']}`
+    data = dados[str(usuario.id)]
 
-"""
-
-    embed=discord.Embed(
-        title="📜 **HISTÓRICO DE REGISTROS**",
-        description=texto[:4000],
+    embed = discord.Embed(
+        title="📜 **HISTÓRICO DE REGISTRO**",
         color=0x3498db
     )
 
+    embed.set_author(
+        name=interaction.guild.name,
+        icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+    )
+
+    embed.description = f"""
+**Usuário**
+`{usuario}`
+
+**Status**
+`{data['status']}`
+
+**Nome**
+`{data['nome']}`
+
+**Nick**
+`{data['nick']}`
+
+**Idade**
+`{data['idade']}`
+
+**Recrutador**
+`{data['recrutador']}`
+"""
+
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="botdizer")
+@app_commands.describe(
+titulo="Título da mensagem",
+descricao="Descrição",
+cor="Cor HEX ex: #176387",
+footer="Texto do rodapé",
+thumbnail="URL da thumbnail",
+banner="URL do banner"
+)
+async def botdizer(interaction: discord.Interaction,titulo:str,descricao:str,cor:str=None,footer:str=None,thumbnail:str=None,banner:str=None):
+
+    if cor:
+        cor=int(cor.replace("#",""),16)
+    else:
+        cor=0x176387
+
+    embed=discord.Embed(
+        title=f"**{titulo}**",
+        description=descricao,
+        color=cor
+    )
+
+    embed.set_author(
+        name=interaction.guild.name,
+        icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+    )
+
+    if footer:
+        embed.set_footer(text=footer)
+
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
+
+    if banner:
+        embed.set_image(url=banner)
+
+    await interaction.response.send_message(
+        "```Mensagem enviada com sucesso.```",
+        ephemeral=True
+    )
+
+    await interaction.channel.send(embed=embed)
+
+@bot.tree.command(name="botdizer2")
+@app_commands.describe(mensagem="Mensagem que o bot irá enviar")
+async def botdizer2(interaction: discord.Interaction, mensagem: str):
+
+    await interaction.response.send_message(
+        "```Mensagem enviada.```",
+        ephemeral=True
+    )
+
+    await interaction.channel.send(mensagem)
 
 @bot.event
 async def on_ready():
