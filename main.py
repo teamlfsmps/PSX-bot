@@ -7,7 +7,6 @@ from threading import Thread
 from datetime import datetime
 import json
 import os
-from PIL import Image, ImageDraw, ImageFont
 import requests
 from io import BytesIO
 
@@ -448,7 +447,6 @@ def salvar_identidades(dados):
 # GERAR RG (COLE AQUI)
 # =========================
 
-def gerar_rg(usuario, nick, nome_grito, cargo, perfil, numero):
 
     img = Image.new("RGB",(600,350),(30,30,30))
     draw = ImageDraw.Draw(img)
