@@ -4,6 +4,7 @@ from discord import app_commands
 from flask import Flask
 from threading import Thread
 import os
+import json
 
 TOKEN = os.getenv("TOKEN")
 
@@ -13,12 +14,12 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ==============================
-# SERVIDOR FLASK (ANTI TIMEOUT)
+# FLASK (ANTI TIMEOUT RENDER)
 # ==============================
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
     return "PSX Bot Online"
 
@@ -30,7 +31,25 @@ def keep_alive():
     t.start()
 
 # ==============================
-# EVENTOS
+# BANCO DE REGISTROS
+# ==============================
+
+ARQUIVO = "registros.json"
+
+if not os.path.exists(ARQUIVO):
+    with open(ARQUIVO, "w") as f:
+        json.dump({}, f)
+
+def carregar():
+    with open(ARQUIVO) as f:
+        return json.load(f)
+
+def salvar(data):
+    with open(ARQUIVO, "w") as f:
+        json.dump(data, f, indent=4)
+
+# ==============================
+# EVENTO
 # ==============================
 
 @bot.event
@@ -39,17 +58,51 @@ async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
 # ==============================
+# /REGISTRO
+# ==============================
+
+@bot.tree.command(name="registro", description="Registrar usuário")
+@app_commands.describe(
+    nome="Seu nome",
+    idade="Sua idade"
+)
+async def registro(interaction: discord.Interaction, nome: str, idade: int):
+
+    registros = carregar()
+    user_id = str(interaction.user.id)
+
+    # ANTI MULTI REGISTRO
+    if user_id in registros:
+        await interaction.response.send_message(
+            "❌ Você já está registrado!",
+            ephemeral=True
+        )
+        return
+
+    registros[user_id] = {
+        "nome": nome,
+        "idade": idade
+    }
+
+    salvar(registros)
+
+    await interaction.response.send_message(
+        "✅ Registro realizado com sucesso!",
+        ephemeral=True
+    )
+
+# ==============================
 # /BOTDIZER
 # ==============================
 
-@bot.tree.command(name="botdizer", description="Fazer o bot enviar um embed")
+@bot.tree.command(name="botdizer", description="Enviar embed")
 @app_commands.describe(
-    titulo="Título da embed",
-    descricao="Descrição da mensagem",
-    cor="Cor da embed (ex: #176387)",
+    titulo="Título",
+    descricao="Descrição",
+    cor="Cor HEX (#176387)",
     footer="Texto do footer",
     thumbnail="Link da thumbnail",
-    banner="Link da imagem/banner"
+    banner="Link do banner"
 )
 
 async def botdizer(
@@ -63,7 +116,7 @@ async def botdizer(
 ):
 
     if cor:
-        cor = int(cor.replace("#",""),16)
+        cor = int(cor.replace("#", ""), 16)
     else:
         cor = 0x176387
 
@@ -82,7 +135,7 @@ async def botdizer(
     if banner:
         embed.set_image(url=banner)
 
-    await interaction.response.send_message("Mensagem enviada!", ephemeral=True)
+    await interaction.response.send_message("✅ Mensagem enviada!", ephemeral=True)
     await interaction.channel.send(embed=embed)
 
 # ==============================
@@ -91,15 +144,16 @@ async def botdizer(
 
 @bot.tree.command(name="botdizer2", description="Bot envia mensagem simples")
 @app_commands.describe(
-    mensagem="Mensagem que o bot vai enviar"
+    mensagem="Mensagem"
 )
 
 async def botdizer2(interaction: discord.Interaction, mensagem: str):
-    await interaction.response.send_message("Mensagem enviada!", ephemeral=True)
+
+    await interaction.response.send_message("✅ Mensagem enviada!", ephemeral=True)
     await interaction.channel.send(mensagem)
 
 # ==============================
-# INICIAR BOT
+# INICIAR
 # ==============================
 
 keep_alive()
