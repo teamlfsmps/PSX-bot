@@ -2,52 +2,83 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import Modal, TextInput, View, Button
+from flask import Flask
+from threading import Thread
 from datetime import datetime
 import json
 import os
 
 TOKEN = os.getenv("TOKEN")
 
-APROVADOS = 1482358707529711626
-REPROVADOS = 1482358743176974519
-CONTADOR = 1482372644870422579
+# =========================
+# IDs
+# =========================
+
+CANAL_APROVADOS = 1482358707529711626
+CANAL_REPROVADOS = 1482358743176974519
+CANAL_CONTADOR = 1482372644870422579
 CARGO_APROVADO = 1482371950335627304
+
+# =========================
+# FLASK (Render)
+# =========================
+
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot online"
+
+def run():
+    app.run(host="0.0.0.0", port=10000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# =========================
+# BOT
+# =========================
 
 intents = discord.Intents.default()
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-arquivo = "registros.json"
+# =========================
+# BANCO DE DADOS
+# =========================
 
-if not os.path.exists(arquivo):
-    with open(arquivo,"w") as f:
+ARQUIVO = "registros.json"
+
+if not os.path.exists(ARQUIVO):
+    with open(ARQUIVO,"w") as f:
         json.dump({},f)
 
 def carregar():
-    with open(arquivo) as f:
+    with open(ARQUIVO) as f:
         return json.load(f)
 
-def salvar(data):
-    with open(arquivo,"w") as f:
-        json.dump(data,f,indent=4)
+def salvar(dados):
+    with open(ARQUIVO,"w") as f:
+        json.dump(dados,f,indent=4)
 
 # =========================
 # CONTADOR
 # =========================
 
-async def atualizar_contador(guild):
+async def atualizar_contador():
 
     dados = carregar()
 
-    aprovados = sum(1 for x in dados.values() if x["status"] == "aprovado")
-    rejeitados = sum(1 for x in dados.values() if x["status"] == "rejeitado")
+    aprovados = sum(1 for x in dados.values() if x["status"]=="aprovado")
+    rejeitados = sum(1 for x in dados.values() if x["status"]=="rejeitado")
 
-    canal = bot.get_channel(CONTADOR)
+    canal = bot.get_channel(CANAL_CONTADOR)
 
     embed = discord.Embed(
         title="📊 Sistema de Registros",
-        description=f"Aprovado ✅: {aprovados}\nRejeitado ❌: {rejeitados}",
+        description=f"Aprovado✅: {aprovados}\nRejeitado❌: {rejeitados}",
         color=0xf1c40f
     )
 
@@ -59,7 +90,7 @@ async def atualizar_contador(guild):
         await canal.send(embed=embed)
 
 # =========================
-# FORMULÁRIO
+# FORMULÁRIO RGSET
 # =========================
 
 class RegistroModal(Modal, title="Settagem"):
@@ -170,7 +201,7 @@ class RegistroBotoes(View):
             "```Registro de set aprovado, aguarde a execução...```"
         )
 
-        canal=bot.get_channel(APROVADOS)
+        canal=bot.get_channel(CANAL_APROVADOS)
 
         data=datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -206,7 +237,7 @@ class RegistroBotoes(View):
         if membro and cargo:
             await membro.add_roles(cargo)
 
-        await atualizar_contador(interaction.guild)
+        await atualizar_contador()
 
     @discord.ui.button(label="Rejeitar",style=discord.ButtonStyle.danger,emoji="❌")
     async def rejeitar(self,interaction:discord.Interaction,button:Button):
@@ -220,7 +251,7 @@ class RegistroBotoes(View):
             "```registro de set rejeitado, tente novamente mais tarde...```"
         )
 
-        canal=bot.get_channel(REPROVADOS)
+        canal=bot.get_channel(CANAL_REPROVADOS)
 
         data=datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -250,10 +281,10 @@ class RegistroBotoes(View):
 
         await canal.send(embed=embed)
 
-        await atualizar_contador(interaction.guild)
+        await atualizar_contador()
 
 # =========================
-# COMANDOS
+# COMANDO RGSET
 # =========================
 
 @bot.tree.command(name="rgset",description="Formulário de registro")
@@ -276,7 +307,7 @@ async def historicorgset(interaction:discord.Interaction):
     for user,data in dados.items():
 
         texto+=f"""
-Usuário: <@{user}>
+Usuário:<@{user}>
 Status:`{data['status']}`
 Nick:`{data['nick']}`
 Idade:`{data['idade']}`
@@ -293,6 +324,43 @@ Recrutador:`{data['recrutador']}`
     await interaction.response.send_message(embed=embed)
 
 # =========================
+# BOTDIZER
+# =========================
+
+@bot.tree.command(name="botdizer",description="Bot envia embed")
+@app_commands.describe(
+titulo="Título",
+descricao="Descrição",
+cor="Cor HEX ex: #176387"
+)
+async def botdizer(interaction:discord.Interaction,titulo:str,descricao:str,cor:str=None):
+
+    if cor:
+        cor=int(cor.replace("#",""),16)
+    else:
+        cor=0x176387
+
+    embed=discord.Embed(
+        title=f"**{titulo}**",
+        description=descricao,
+        color=cor
+    )
+
+    await interaction.response.send_message("Mensagem enviada.",ephemeral=True)
+    await interaction.channel.send(embed=embed)
+
+# =========================
+# BOTDIZER2
+# =========================
+
+@bot.tree.command(name="botdizer2",description="Bot envia mensagem simples")
+@app_commands.describe(mensagem="Mensagem")
+async def botdizer2(interaction:discord.Interaction,mensagem:str):
+
+    await interaction.response.send_message("Mensagem enviada.",ephemeral=True)
+    await interaction.channel.send(mensagem)
+
+# =========================
 
 @bot.event
 async def on_ready():
@@ -300,4 +368,5 @@ async def on_ready():
     await bot.tree.sync()
     print("Bot online")
 
+keep_alive()
 bot.run(TOKEN)
