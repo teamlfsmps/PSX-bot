@@ -421,6 +421,237 @@ async def botdizer2(interaction: discord.Interaction, mensagem: str):
 
     await interaction.channel.send(mensagem)
 
+
+# =========================
+# COMANDO IDENTIDADE
+# =========================
+
+@bot.tree.command(name="identidade", description="Criar identidade RG")
+@app_commands.describe(
+    nick="Nick do usuário",
+    nome_grito="Nome de grito",
+    cargo="Cargo",
+    link_perfil="Link do perfil"
+)
+async def identidade(interaction: discord.Interaction, nick:str, nome_grito:str, cargo:str, link_perfil:str):
+
+    dados = carregar_identidades()
+
+    dados["contador"] += 1
+    numero = dados["contador"]
+
+    dados["usuarios"][str(interaction.user.id)] = {
+        "nick": nick,
+        "nome_grito": nome_grito,
+        "cargo": cargo,
+        "perfil": link_perfil,
+        "numero": numero
+    }
+
+    salvar_identidades(dados)
+
+    caminho = gerar_rg(interaction.user, nick, nome_grito, cargo, link_perfil, numero)
+
+    await interaction.response.send_message("identidade enviada!", ephemeral=True)
+
+    await interaction.channel.send(file=discord.File(caminho))
+
+
+# =========================
+# VER IDENTIDADE
+# =========================
+
+@bot.tree.command(name="veridentidade", description="Ver identidade de alguém")
+async def veridentidade(interaction: discord.Interaction, usuario: discord.Member):
+
+    dados = carregar_identidades()
+
+    if str(usuario.id) not in dados["usuarios"]:
+        await interaction.response.send_message("```Esse usuário não possui identidade.```", ephemeral=True)
+        return
+
+    info = dados["usuarios"][str(usuario.id)]
+
+    embed = discord.Embed(
+        title="IDENTIDADE–RG",
+        color=0xff0000
+    )
+
+    embed.add_field(
+        name="",
+        value=f"""
+👤 Nick: {info['nick']}
+🗣 Nome de grito: {info['nome_grito']}
+🎖 Cargo: {info['cargo']}
+
+🕵 Perfil: {info['perfil']}
+
+📑 Registro Nº: {info['numero']}
+""",
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+# =========================
+# LISTAR IDENTIDADES
+# =========================
+
+@bot.tree.command(name="listaridentidades", description="Listar identidades registradas")
+async def listaridentidades(interaction: discord.Interaction):
+
+    dados = carregar_identidades()
+
+    if not dados["usuarios"]:
+        await interaction.response.send_message(
+            "```Nenhuma identidade registrada ainda.```",
+            ephemeral=True
+        )
+        return
+
+    texto = ""
+
+    for uid, info in dados["usuarios"].items():
+
+        texto += f"""
+Registro Nº {info['numero']}
+👤 Usuário: <@{uid}>
+🎮 Nick: {info['nick']}
+🎖 Cargo: {info['cargo']}
+
+"""
+
+    embed = discord.Embed(
+        title="📑 LISTA DE IDENTIDADES",
+        description=texto[:4000],
+        color=0xff0000
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+# =========================
+# EDITAR IDENTIDADE
+# =========================
+
+@bot.tree.command(name="editaridentidade", description="Editar identidade de alguém")
+@app_commands.describe(
+    usuario="Usuário",
+    nick="Novo nick",
+    nome_grito="Novo nome de grito",
+    cargo="Novo cargo",
+    perfil="Novo link de perfil"
+)
+async def editaridentidade(
+    interaction: discord.Interaction,
+    usuario: discord.Member,
+    nick: str = None,
+    nome_grito: str = None,
+    cargo: str = None,
+    perfil: str = None
+):
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "```Você não tem permissão para usar isso.```",
+            ephemeral=True
+        )
+        return
+
+    dados = carregar_identidades()
+
+    if str(usuario.id) not in dados["usuarios"]:
+
+        await interaction.response.send_message(
+            "```Esse usuário não possui identidade registrada.```",
+            ephemeral=True
+        )
+        return
+
+    info = dados["usuarios"][str(usuario.id)]
+
+    if nick:
+        info["nick"] = nick
+
+    if nome_grito:
+        info["nome_grito"] = nome_grito
+
+    if cargo:
+        info["cargo"] = cargo
+
+    if perfil:
+        info["perfil"] = perfil
+
+    salvar_identidades(dados)
+
+    await interaction.response.send_message(
+        "```identidade atualizada com sucesso!```"
+    )
+
+
+# =========================
+# PAINEL STAFF IDENTIDADE
+# =========================
+
+class PainelIdentidade(View):
+
+    @discord.ui.button(label="Ver identidades", style=discord.ButtonStyle.green)
+    async def ver(self, interaction: discord.Interaction, button: Button):
+
+        dados = carregar_identidades()
+
+        texto = ""
+
+        for uid, info in dados["usuarios"].items():
+
+            texto += f"""
+Registro Nº {info['numero']}
+👤 Usuário: <@{uid}>
+🎮 Nick: {info['nick']}
+🎖 Cargo: {info['cargo']}
+
+"""
+
+        embed = discord.Embed(
+            title="📑 IDENTIDADES DO SERVIDOR",
+            description=texto[:4000],
+            color=0xff0000
+        )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+    @discord.ui.button(label="Apagar identidade", style=discord.ButtonStyle.red)
+    async def apagar(self, interaction: discord.Interaction, button: Button):
+
+        await interaction.response.send_message(
+            "Use o comando /editaridentidade para gerenciar registros.",
+            ephemeral=True
+        )
+
+
+@bot.tree.command(name="painelidentidade", description="Painel staff de identidades")
+async def painelidentidade(interaction: discord.Interaction):
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "```Você não tem permissão para usar isso.```",
+            ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title="PAINEL STAFF IDENTIDADES",
+        description="Gerencie identidades do servidor",
+        color=0xff0000
+    )
+
+    await interaction.response.send_message(
+        embed=embed,
+        view=PainelIdentidade()
+)
+
 @bot.event
 async def on_ready():
 
