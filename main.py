@@ -484,7 +484,7 @@ async def identidade(interaction: discord.Interaction, nick:str, nome_grito:str,
         color=0xff0000
     )
 
-    # Nome + ícone do servidor
+    # nome do servidor + ícone
     embed.set_author(
         name=interaction.guild.name,
         icon_url=interaction.guild.icon.url if interaction.guild.icon else None
@@ -493,14 +493,14 @@ async def identidade(interaction: discord.Interaction, nick:str, nome_grito:str,
     embed.add_field(
         name="",
         value=f"""
-**👤 Nick:** `{nick}`
-**🗣 Nome de grito:** `{nome_grito}`
-**🎖 Cargo:** `{cargo}`
+**👤 Nick:** ` {nick} `
+**🗣 Nome de grito:** ` {nome_grito} `
+**🎖 Cargo:** ` {cargo} `
 
 **🕵 Link do perfil:** `{link_perfil}`
 
-**📑 Registro Nº:** `{numero}`
-**📅 Data:** `{data_br}`
+**📑 Registro Nº:** ` {numero} `
+**📅 Data:** ` {data_br} `
 """,
         inline=False
     )
