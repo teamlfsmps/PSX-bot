@@ -7,8 +7,6 @@ from threading import Thread
 from datetime import datetime
 import json
 import os
-import requests
-from io import BytesIO
 
 TOKEN = os.getenv("TOKEN")
 
@@ -444,43 +442,6 @@ def salvar_identidades(dados):
 
 
 # =========================
-# GERAR RG (COLE AQUI)
-# =========================
-
-
-    img = Image.new("RGB",(600,350),(30,30,30))
-    draw = ImageDraw.Draw(img)
-
-    fonte = ImageFont.load_default()
-
-    draw.text((200,20),"IDENTIDADE - RG",fill=(255,255,255),font=fonte)
-
-    draw.text((40,100),f"Nick: {nick}",fill=(255,255,255),font=fonte)
-    draw.text((40,130),f"Nome de grito: {nome_grito}",fill=(255,255,255),font=fonte)
-    draw.text((40,160),f"Cargo: {cargo}",fill=(255,255,255),font=fonte)
-
-    draw.text((40,220),f"Perfil: {perfil}",fill=(200,200,200),font=fonte)
-    draw.text((40,260),f"ID Discord: {usuario.id}",fill=(200,200,200),font=fonte)
-
-    data=datetime.now().strftime("%d/%m/%Y")
-
-    draw.text((40,290),f"Data: {data}",fill=(200,200,200),font=fonte)
-    draw.text((420,290),f"Nº {numero}",fill=(255,255,255),font=fonte)
-
-    avatar_url=usuario.display_avatar.url
-    response=requests.get(avatar_url)
-
-    avatar=Image.open(BytesIO(response.content)).resize((120,120))
-
-    img.paste(avatar,(440,100))
-
-    caminho=f"rg_{usuario.id}.png"
-    img.save(caminho)
-
-    return caminho
-
-
-# =========================
 # COMANDO IDENTIDADE
 # =========================
 
@@ -508,12 +469,32 @@ async def identidade(interaction: discord.Interaction, nick:str, nome_grito:str,
 
     salvar_identidades(dados)
 
-    caminho = gerar_rg(interaction.user, nick, nome_grito, cargo, link_perfil, numero)
+    embed = discord.Embed(
+        title="IDENTIDADE – RG",
+        color=0xff0000
+    )
 
-    await interaction.response.send_message("identidade enviada!", ephemeral=True)
+    embed.add_field(
+        name="",
+        value=f"""
+👤 Nick: {nick}
+🗣 Nome de grito: {nome_grito}
+🎖 Cargo: {cargo}
 
-    await interaction.channel.send(file=discord.File(caminho))
+🕵 Perfil: {link_perfil}
 
+📑 Registro Nº: {numero}
+""",
+        inline=False
+    )
+
+    await interaction.response.send_message(
+        "```Identidade criada com sucesso.```",
+        ephemeral=True
+    )
+
+    await interaction.channel.send(embed=embed)
+    
 
 # =========================
 # VER IDENTIDADE
