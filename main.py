@@ -469,21 +469,38 @@ async def identidade(interaction: discord.Interaction, nick:str, nome_grito:str,
 
     salvar_identidades(dados)
 
+    agora = datetime.now()
+
+    meses = [
+        "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+        "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    ]
+
+    data_br = f"{agora.day} de {meses[agora.month-1]} de {agora.year}"
+
     embed = discord.Embed(
-        title="IDENTIDADE – RG",
+        title="**IDENTIDADE–RG**",
+        description=f"***nova identidade de: {interaction.user.mention}***",
         color=0xff0000
+    )
+
+    # Nome + ícone do servidor
+    embed.set_author(
+        name=interaction.guild.name,
+        icon_url=interaction.guild.icon.url if interaction.guild.icon else None
     )
 
     embed.add_field(
         name="",
         value=f"""
-👤 Nick: {nick}
-🗣 Nome de grito: {nome_grito}
-🎖 Cargo: {cargo}
+**👤 Nick:** `{nick}`
+**🗣 Nome de grito:** `{nome_grito}`
+**🎖 Cargo:** `{cargo}`
 
-🕵 Perfil: {link_perfil}
+**🕵 Link do perfil:** `{link_perfil}`
 
-📑 Registro Nº: {numero}
+**📑 Registro Nº:** `{numero}`
+**📅 Data:** `{data_br}`
 """,
         inline=False
     )
